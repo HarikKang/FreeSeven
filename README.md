@@ -30,12 +30,13 @@ A股 + 跨市场 ETF 动量轮动量化工具。小资金、信号 + 手动下�
 ```
 config.py      配置加载（config.yaml + .env）
 config/        config.yaml、.env.example
-data/          数据层（tushare 封装、SQLite、ETF 池）
-strategy/      动量、持仓分配、调仓调度
+data/          数据层（tushare 封装、SQLite、ETF 池、数据同步）
+strategy/      动量计算、统一策略类 MomentumStrategy、调仓调度
 backtest/      回测引擎与绩效指标
-signals/       信号生成与推送
-scripts/       拉数据、回测、出信号
+signals/       信号生成、溢价监测、推送与报告渲染
+scripts/       拉数据、回测、敏感性、滚动验证、归因、出信号
 tests/         单元测试
+pyproject.toml 包声明（依赖唯一来源，pip install -e .[dev,plot]）
 ```
 
 ## 快速开始
@@ -61,7 +62,7 @@ python scripts/walk_forward.py --exclude CODES      # 剔除指定标的逐年�
 python scripts/attribution.py                       # 收益来源归因（剔除法 + 跨市场限仓对照）
 ```
 
-微信推送：在 `config/.env` 配置 `DINGTALK_WEBHOOK_URL` 与 `DINGTALK_SECRET`（钉钉群→群设置→智能群助手→自定义机器人），`config/config.yaml` 的 `notify.channel` 设为 `dingtalk`。也支持 Server酱（`SERVERCHAN_KEY`）/ PushPlus（`PUSHPLUS_TOKEN`）。
+推送配置：在 `config/.env` 配置 `DINGTALK_WEBHOOK_URL` 与 `DINGTALK_SECRET`（钉钉群→群设置→智能群助手→自定义机器人），`config/config.yaml` 的 `notify.channel` 设为 `dingtalk`。也支持 Server酱（`SERVERCHAN_KEY`）/ PushPlus（`PUSHPLUS_TOKEN`）。
 
 ## 注意事项
 
