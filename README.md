@@ -51,7 +51,7 @@ python scripts/run_signal.py --fetch --capital 100000  # 先更新数据再出�
 python scripts/run_signal.py --force                # 非调仓日强制出信号
 ```
 
-微信推送：在 `config/.env` 配置 `SERVERCHAN_KEY`（Server酱）或 `PUSHPLUS_TOKEN`，`config/config.yaml` 的 `notify.channel` 选择通道。
+微信推送：在 `config/.env` 配置 `DINGTALK_WEBHOOK_URL` 与 `DINGTALK_SECRET`（钉钉群→群设置→智能群助手→自定义机器人），`config/config.yaml` 的 `notify.channel` 设为 `dingtalk`。也支持 Server酱（`SERVERCHAN_KEY`）/ PushPlus（`PUSHPLUS_TOKEN`）。
 
 ## 注意事项
 

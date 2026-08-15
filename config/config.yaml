@@ -98,5 +98,5 @@ backtest:
   end: "20261231"
 
 notify:
-  channel: serverchan        # serverchan / pushplus
+  channel: dingtalk         # dingtalk / serverchan / pushplus
   key: ""                    # 推送密钥，从环境变量读取
