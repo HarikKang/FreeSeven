@@ -37,6 +37,10 @@ universe:
     name: 有色金属
   - ts_code: 515220.SH
     name: 煤炭
+  - ts_code: 159930.SZ
+    name: 能源
+  - ts_code: 515210.SH
+    name: 钢铁
   - ts_code: 512200.SH
     name: 房地产
   - ts_code: 512980.SH
@@ -56,9 +60,17 @@ universe:
     name: 十年国债
   - ts_code: 511990.SH
     name: 货币ETF
+  - ts_code: 511380.SH
+    name: 可转债
+  - ts_code: 511360.SH
+    name: 短融债
   # 商品
   - ts_code: 518880.SH
     name: 黄金
+  - ts_code: 159985.SZ
+    name: 豆粕
+  - ts_code: 159980.SZ
+    name: 有色期货
   # 跨市场
   - ts_code: 513100.SH
     name: 纳指100

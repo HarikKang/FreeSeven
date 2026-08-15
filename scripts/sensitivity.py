@@ -6,6 +6,7 @@
     python scripts/sensitivity.py
     python scripts/sensitivity.py --windows 180,200,250,300 --top-ns 5,6,8,10
     python scripts/sensitivity.py --sweep-max-momentum   # 过热阈值敏感性
+    python scripts/sensitivity.py --oos-start 20230101   # 网格同时输出 IS/OOS，防调参变样本内挖矿
     python scripts/sensitivity.py --start 20200101
 """
 import argparse
@@ -33,6 +34,7 @@ def run_one(closes, opens, rb, costs, strategy: MomentumStrategy, regime_code):
         "回撤%": max_drawdown(equity) * 100,
         "夏普": sharpe(daily),
         "调仓": len(result["trades"]),
+        "equity": equity,
     }
 
 
@@ -43,6 +45,8 @@ def main():
     parser.add_argument("--sweep-max-momentum", action="store_true",
                         help="改为扫过热阈值（0.6/0.8/1.0/关闭），固定 config 的 window/top_n")
     parser.add_argument("--start", default="", help="回测起点 YYYYMMDD")
+    parser.add_argument("--oos-start", default="", dest="oos_start",
+                        help="样本外起点 YYYYMMDD，网格同时输出 IS/OOS 指标")
     args = parser.parse_args()
 
     cfg = load_config()
@@ -86,6 +90,28 @@ def main():
                 )
                 m = run_one(closes, opens, rb, costs, s, regime_code)
                 rows.append((f"window={w}, top_n={n}", m))
+
+    if args.oos_start:
+        import pandas as pd
+
+        oos_dt = pd.to_datetime(args.oos_start, format="%Y%m%d")
+        print("-" * 78)
+        print(f"{'参数':<26} {'IS年化%':>8} {'OOS年化%':>9} {'OOS夏普':>8} {'OOS回撤%':>9}")
+        print("-" * 78)
+        for label, m in rows:
+            eq = m["equity"]
+            is_eq, oos_eq = eq.loc[eq.index < oos_dt], eq.loc[eq.index >= oos_dt]
+            if len(is_eq) < 21 or len(oos_eq) < 21:
+                print(f"{label:<26} {'样本不足':>8}")
+                continue
+            is_ann = cagr(is_eq) * 100
+            oos_ann = cagr(oos_eq) * 100
+            oos_sh = sharpe(oos_eq.pct_change().dropna())
+            oos_dd = max_drawdown(oos_eq) * 100
+            print(f"{label:<26} {is_ann:>8.1f} {oos_ann:>9.1f} {oos_sh:>8.2f} {oos_dd:>9.1f}")
+        print("-" * 78)
+        print("解读：OOS 相对 IS 普遍不崩才可信；若只有个别参数 OOS 好看，那是又一次挖矿。")
+        return
 
     print("-" * 58)
     print(f"{'参数':<26} {'年化%':>8} {'回撤%':>8} {'夏普':>6} {'调仓':>5}")
