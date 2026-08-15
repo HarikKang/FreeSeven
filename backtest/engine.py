@@ -1,17 +1,20 @@
 """向量化回测引擎：ETF 动量轮动
 
-信号：周五收盘动量 -> 目标权重
-执行：下个交易日开盘价进出
-持有：期间按前复权未做日内再平衡，权重自然漂移（可接受近似）
+信号：调仓日收盘动量 -> 目标权重（经 MomentumStrategy，与实盘信号同源）
+执行：下一个交易日开盘价进出
+持有：期间不做日内再平衡，权重自然漂移；停牌/缺数据的持仓当日按 0 收益近似
 成本：佣金(含最低5元) + 滑点 + 印花税(ETF 为 0)
 """
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 
-from strategy.momentum import compute_momentum
-from strategy.allocator import target_weights
+from strategy.core import MomentumStrategy
+
+
+def _valid(price) -> bool:
+    """价格有效：非 NaN 且为正。停牌/缺数据返回 False。"""
+    return pd.notna(price) and price > 0
 
 
 def _cost_fraction(
@@ -40,30 +43,25 @@ def _cost_fraction(
     return (commission + slippage + stamp) / equity if equity > 0 else 0.0
 
 
-def _initial_weights(active: dict[str, float]) -> dict[str, float]:
-    return dict(active)
-
-
 def backtest_momentum(
     closes: pd.DataFrame,
     opens: pd.DataFrame,
-    top_n: int,
-    window: int,
-    require_positive: bool,
+    strategy: MomentumStrategy,
     costs: dict,
     rebalance_weekday: int = 4,
     rebalance_dates: list | None = None,
     capital: float = 100000.0,
     regime_code: str | None = None,
-    regime_window: int = 20,
-    momentum_lag: int = 0,
-    max_momentum: float | None = None,
 ) -> dict:
-    """返回 equity、daily_returns、trades 等结果。"""
+    """返回 equity、daily_returns、trades 等结果。
+
+    - strategy：动量与选股参数的唯一来源（回测/实盘共用）
+    - regime_code：大盘趋势过滤标的（需在 closes 中），其动量转负则整体空仓；None 关闭
+    """
     closes = closes.sort_index()
     opens = opens.reindex(closes.index)
 
-    mom = compute_momentum(closes, window, lag=momentum_lag)
+    mom = strategy.momentum(closes)
     dates = list(closes.index)
 
     # 调仓日：每周 rebalance_weekday 的交易日；执行日为其下一个交易日
@@ -85,21 +83,16 @@ def backtest_momentum(
     for d in dates:
         if d in signal_by_exec:
             signal_date = signal_by_exec[d]
-            # 卖出部分：从昨收到今开
+            # 卖出部分：从昨收到今开（停牌标的无有效开盘价，当日不计收益）
             ret_old = 0.0
             if prev_close is not None and active:
                 ret_old = sum(
                     w * (opens.loc[d][c] / prev_close[c] - 1.0)
                     for c, w in active.items()
-                    if c in prev_close and prev_close[c] > 0
+                    if c in prev_close and _valid(prev_close[c]) and _valid(opens.loc[d][c])
                 )
-            # 决定新目标权重（用调仓日周五收盘的动量）
-            new_active = target_weights(
-                mom.loc[signal_date],
-                top_n,
-                require_positive,
-                max_momentum=max_momentum,
-            )
+            # 决定新目标权重（用调仓日收盘的动量）
+            new_active = strategy.select(mom.loc[signal_date])
             # 大盘趋势过滤：regime 动量转负 -> 整体空仓
             if regime_code is not None:
                 regime_mom = mom.loc[signal_date].get(regime_code)
@@ -110,7 +103,7 @@ def backtest_momentum(
             ret_new = sum(
                 w * (closes.loc[d][c] / opens.loc[d][c] - 1.0)
                 for c, w in new_active.items()
-                if opens.loc[d][c] > 0
+                if _valid(opens.loc[d][c]) and _valid(closes.loc[d][c])
             )
             daily_returns[d] = (1.0 + ret_old) * (1.0 - cost) * (1.0 + ret_new) - 1.0
             equity *= 1.0 + daily_returns[d]
@@ -121,7 +114,7 @@ def backtest_momentum(
                 trades.append(
                     {
                         "date": d,
-                        "signal_date": None,  # 由调用方回填
+                        "signal_date": signal_date,
                         "buys": buys,
                         "sells": sells,
                         "weights": dict(new_active),
@@ -135,7 +128,7 @@ def backtest_momentum(
                 r = sum(
                     w * (closes.loc[d][c] / prev_close[c] - 1.0)
                     for c, w in active.items()
-                    if c in prev_close and prev_close[c] > 0
+                    if c in prev_close and _valid(prev_close[c]) and _valid(closes.loc[d][c])
                 )
                 daily_returns[d] = r
             else:

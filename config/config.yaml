@@ -77,16 +77,28 @@ universe:
   - ts_code: 513000.SH
     name: 日经225
 
+# 跨市场 QDII 标的（受 strategy.max_cross 限仓约束，溢价风险集中）
+cross_market:
+  - 513100.SH   # 纳指100
+  - 513500.SH   # 标普500
+  - 159920.SZ   # 恒生
+  - 513180.SH   # 恒生科技
+  - 510900.SH   # H股
+  - 513050.SH   # 中概互联
+  - 513330.SH   # 恒生互联网
+  - 513000.SH   # 日经225
+
 strategy:
   momentum_window: 250       # 12个月动量
   momentum_lag: 0            # 0=纯12月动量（12-1会规避短期反转，但对QDII更差）
   top_n: 8                   # 持有数量
   require_positive: true     # 动量需为正才买入，全负则空仓
   max_momentum: 0.8          # 过热剔除：12月动量超过80%的票不买（防高位接盘）
-  rebalance_weekday: 4       # 周五收盘后出信号（0=周一 ... 4=周五）
+  max_cross: 2               # 跨市场（cross_market）最多入选数量，限 QDII 溢价/单一市场集中风险；设 null=不限
+  rebalance_weekday: 4       # 周五收盘后出信号（0=周一 ... 4=周五，仅非 month_end 模式生效）
   rebalance_schedule: month_end  # month_end=每月最后一个交易日；或用 rebalance_interval_weeks 自定义频率
   rebalance_interval_weeks: 4  # rebalance_schedule 非 month_end 时的调仓间隔（周）
-  exec_weekday: 0            # 下周一开盘执行
+  regime_code: ""              # 大盘趋势过滤（如 510300.SH，其动量转负则整体空仓；空=关闭）
 
 costs:
   commission_rate: 0.00025   # 佣金万 2.5
@@ -99,5 +111,4 @@ backtest:
   end: "20261231"
 
 notify:
-  channel: dingtalk         # dingtalk / serverchan / pushplus
-  key: ""                    # 推送密钥，从环境变量读取
+  channel: dingtalk         # dingtalk / serverchan / pushplus（密钥从 config/.env 环境变量读取）

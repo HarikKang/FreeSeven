@@ -3,8 +3,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from strategy.allocator import target_weights
-from strategy.momentum import compute_momentum
+from strategy.core import MomentumStrategy
 
 
 def generate_signal(
@@ -14,11 +13,14 @@ def generate_signal(
     require_positive: bool,
     max_momentum: float | None = None,
     asof: pd.Timestamp | None = None,
+    lag: int = 0,
 ) -> dict[str, float]:
-    """基于截至 asof 的数据生成目标权重。"""
-    closes = closes.sort_index().loc[:asof]
-    mom = compute_momentum(closes, window).iloc[-1]
-    return target_weights(mom, top_n, require_positive, max_momentum=max_momentum)
+    """基于截至 asof 的数据生成目标权重（兼容入口，优先用 MomentumStrategy）。"""
+    strategy = MomentumStrategy(
+        window=window, lag=lag, top_n=top_n,
+        require_positive=require_positive, max_momentum=max_momentum,
+    )
+    return strategy.signal(closes, asof=asof)
 
 
 def diff_signal(

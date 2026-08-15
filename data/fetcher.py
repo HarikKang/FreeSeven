@@ -47,6 +47,34 @@ class TushareFetcher:
             params["end_date"] = end_date
         return self._call("fund_daily", **params)
 
+    def fund_adj(
+        self,
+        ts_code: str,
+        start_date: str = "",
+        end_date: str = "",
+    ) -> pd.DataFrame:
+        """基金复权因子（用于前复权，修正分红除息对动量/收益的污染）。"""
+        params = {"ts_code": ts_code}
+        if start_date:
+            params["start_date"] = start_date
+        if end_date:
+            params["end_date"] = end_date
+        return self._call("fund_adj", **params)
+
+    def fund_nav(
+        self,
+        ts_code: str,
+        start_date: str = "",
+        end_date: str = "",
+    ) -> pd.DataFrame:
+        """场内基金净值（用于计算 QDII 溢价率：收盘价/单位净值 - 1）。"""
+        params = {"ts_code": ts_code, "market": "E"}
+        if start_date:
+            params["start_date"] = start_date
+        if end_date:
+            params["end_date"] = end_date
+        return self._call("fund_nav", **params)
+
     def index_daily(
         self,
         ts_code: str,

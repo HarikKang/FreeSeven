@@ -19,15 +19,8 @@ from backtest.engine import backtest_momentum, benchmark_equity
 from backtest.metrics import metrics, max_drawdown
 from config import load_config
 from data import Storage, ts_codes
+from strategy.core import MomentumStrategy
 from strategy.schedule import month_end_dates
-
-
-def load_matrices(storage: Storage) -> tuple[pd.DataFrame, pd.DataFrame]:
-    df = storage.read_all_fund_daily()
-    df["trade_date"] = pd.to_datetime(df["trade_date"], format="%Y%m%d")
-    closes = df.pivot(index="trade_date", columns="ts_code", values="close").sort_index()
-    opens = df.pivot(index="trade_date", columns="ts_code", values="open").sort_index()
-    return closes, opens
 
 
 def win_rate(daily_returns: pd.Series) -> float:
@@ -63,7 +56,7 @@ def main():
     bench = cfg["universe"][0]["ts_code"]  # 沪深300 作基准
 
     storage = Storage()
-    closes, opens = load_matrices(storage)
+    closes, opens = storage.load_matrices()  # 前复权价格
     if args.start:
         closes = closes.loc[closes.index >= pd.to_datetime(args.start, format="%Y%m%d")]
         opens = opens.reindex(closes.index)
@@ -73,16 +66,14 @@ def main():
     if strat.get("rebalance_schedule") == "month_end":
         rb = month_end_dates(closes.index)
 
+    strategy = MomentumStrategy.from_config(strat, cross_codes=cfg.get("cross_market", []))
     result = backtest_momentum(
         closes=closes,
         opens=opens,
-        top_n=strat["top_n"],
-        window=strat["momentum_window"],
-        require_positive=strat["require_positive"],
+        strategy=strategy,
         costs=costs,
         rebalance_dates=rb,
-        momentum_lag=strat.get("momentum_lag", 0),
-        max_momentum=strat.get("max_momentum"),
+        regime_code=strat.get("regime_code") or None,
     )
     equity, daily, trades = result["equity"], result["daily_returns"], result["trades"]
 
@@ -105,9 +96,10 @@ def main():
     bench_eq = benchmark_equity(closes, bench).reindex(equity.index).ffill()
     bench_ret = (bench_eq.iloc[-1] / bench_eq.iloc[0] - 1) * 100
     bench_dd = max_drawdown(bench_eq) * 100
+    strat_ret = (equity.iloc[-1] / equity.iloc[0] - 1) * 100
     print("-" * 60)
     print(f"  基准 {bench}: 区间收益 {bench_ret:.1f}% | 最大回撤 {bench_dd:.1f}%")
-    print(f"  策略 vs 基准超额: {(equity.iloc[-1] / bench_eq.iloc[0] - 1) * 100 - bench_ret:.1f}%")
+    print(f"  策略 vs 基准超额: {strat_ret - bench_ret:.1f}%")
 
     if args.chart:
         try:
