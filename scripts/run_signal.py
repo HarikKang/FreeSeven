@@ -22,7 +22,7 @@ from config import load_config
 from data import Storage, load_universe, ts_codes
 from signals.generator import diff_signal, generate_signal
 from signals.notifier import notify
-from strategy.schedule import is_signal_day, month_end_dates
+from strategy.schedule import is_signal_day, month_end_dates, next_execution_dates
 
 SIGNAL_DIR = Path(__file__).resolve().parent.parent / "data" / "signals"
 
@@ -83,35 +83,72 @@ def main():
         asof=asof,
     )
     prev = load_previous()
-    sells, buys = diff_signal(prev.get("weights", {}) if prev else {}, weights)
+    prev_weights = prev.get("weights", {}) if prev else {}
+    sells, buys = diff_signal(prev_weights, weights)
+    holds = set(prev_weights) & set(weights)
+
+    # 展示用动量（近 window 日涨幅）
+    from strategy.momentum import compute_momentum  # noqa: PLC0415
+
+    mom_series = compute_momentum(closes, strat["momentum_window"]).iloc[-1]
 
     capital = args.capital or cfg.get("portfolio", {}).get("capital", 0.0)
 
+    # 执行日 = 信号日下一个交易日
+    exec_day = next_execution_dates(closes.index, [asof]).get(asof)
+
     lines = []
-    lines.append(f"ETF 动量轮动调仓信号（{asof.date()}）")
-    if weights:
-        w = 1.0 / max(len(weights), 1)
-        for code in sorted(weights, key=lambda c: -weights[c]):
-            amt = capital * weights[code] if capital else 0
-            lines.append(f"  买入 {names.get(code, code)} [{code}] 权重{weights[code]*100:.1f}%"
-                         + (f" 约{amt:,.0f}元" if amt else ""))
+    lines.append("【ETF动量轮动 · 调仓信号】")
+    lines.append(f"信号日: {asof.date()}（{'周五' if asof.weekday()==4 else ''}收盘）")
+    if exec_day:
+        lines.append(f"执行日: {exec_day.date()}（{['一','二','三','四','五'][exec_day.weekday()]}）开盘")
     else:
-        lines.append("  全空仓（无正动量标的，持币等待）")
-
-    if capital and (sells or buys):
-        lines.append("")
-        lines.append("  操作清单：")
-        for code, w in sells.items():
-            lines.append(f"    卖出 {names.get(code, code)} [{code}] 约{capital*w:,.0f}元")
-        for code, w in buys.items():
-            lines.append(f"    买入 {names.get(code, code)} [{code}] 约{capital*w:,.0f}元")
-
+        lines.append("执行日: 下一个交易日开盘")
+    if capital:
+        lines.append(f"资金: {capital:,.0f} 元 | 目标 {len(weights)} 只等权 | 每只约 {capital/max(len(weights),1):,.0f} 元")
+    else:
+        lines.append(f"资金: 未指定（可用 --capital 换算金额）| 目标 {len(weights)} 只等权")
     lines.append("")
-    lines.append("免责声明：本信号仅作研究参考，不构成投资建议。")
+
+    if not weights:
+        lines.append("🟡 本月操作：全空仓")
+        lines.append("    无正动量标的，持币等待，本月不交易。")
+    else:
+        lines.append(f"🟢 新建买入（{len(buys)}只）:" + (" 无" if not buys else ""))
+        for code in sorted(buys, key=lambda c: -mom_series.get(c, 0)):
+            amt = capital * weights[code] if capital else 0
+            lines.append(f"    {names.get(code, code)}[{code}] {weights[code]*100:.0f}%"
+                         + (f" 约{amt:,.0f}元" if amt else ""))
+        lines.append(f"⚪ 继续持有（{len(holds)}只）:" + (" 无" if not holds else ""))
+        for code in sorted(holds, key=lambda c: -mom_series.get(c, 0)):
+            amt = capital * weights[code] if capital else 0
+            lines.append(f"    {names.get(code, code)}[{code}] {weights[code]*100:.0f}%"
+                         + (f" 约{amt:,.0f}元" if amt else ""))
+        lines.append(f"🔴 清仓卖出（{len(sells)}只）:" + (" 无" if not sells else ""))
+        for code in sorted(sells, key=lambda c: -mom_series.get(c, 0)):
+            lines.append(f"    {names.get(code, code)}[{code}]")
+    lines.append("")
+
+    lines.append("【目标持仓明细】（按近12月动量排序）")
+    if weights:
+        for i, code in enumerate(sorted(weights, key=lambda c: -mom_series.get(c, 0)), 1):
+            mom = mom_series.get(code)
+            mom_s = f"近12月{mom*100:+.1f}%" if mom == mom else "数据不足"
+            amt = capital * weights[code] if capital else 0
+            lines.append(f"  {i}. {names.get(code, code)}[{code}] {weights[code]*100:.0f}%"
+                         + (f" {amt:,.0f}元" if amt else "") + f"  {mom_s}")
+    else:
+        lines.append("  （空仓）")
+    lines.append("")
+
+    lines.append("【提醒】")
+    lines.append("- 下个交易日开盘照清单下单，每只等权即可")
+    lines.append("- QDII（纳指/标普/日经/恒生等）注意溢价，现价明显高于净值(IOPV)时观望")
+    lines.append("- 本信号仅作研究参考，不构成投资建议")
     plan_text = "\n".join(lines)
     print(plan_text)
 
-    save_signal(asof.strftime("%Y%m%d"), weights, {"sells": sells, "buys": buys})
+    save_signal(asof.strftime("%Y%m%d"), weights, {"sells": sells, "buys": buys, "holds": list(holds)})
 
     if args.force or is_signal_day(asof, closes.index):
         ok = notify(cfg["notify"]["channel"], f"ETF调仓信号 {asof.date()}", plan_text)
