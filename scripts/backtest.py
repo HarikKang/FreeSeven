@@ -82,6 +82,7 @@ def main():
         costs=costs,
         rebalance_dates=rb,
         momentum_lag=strat.get("momentum_lag", 0),
+        max_momentum=strat.get("max_momentum"),
     )
     equity, daily, trades = result["equity"], result["daily_returns"], result["trades"]
 

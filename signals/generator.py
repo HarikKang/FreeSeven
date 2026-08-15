@@ -12,12 +12,13 @@ def generate_signal(
     window: int,
     top_n: int,
     require_positive: bool,
+    max_momentum: float | None = None,
     asof: pd.Timestamp | None = None,
 ) -> dict[str, float]:
     """基于截至 asof 的数据生成目标权重。"""
     closes = closes.sort_index().loc[:asof]
     mom = compute_momentum(closes, window).iloc[-1]
-    return target_weights(mom, top_n, require_positive)
+    return target_weights(mom, top_n, require_positive, max_momentum=max_momentum)
 
 
 def diff_signal(

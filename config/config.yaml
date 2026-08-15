@@ -82,6 +82,7 @@ strategy:
   momentum_lag: 0            # 0=纯12月动量（12-1会规避短期反转，但对QDII更差）
   top_n: 8                   # 持有数量
   require_positive: true     # 动量需为正才买入，全负则空仓
+  max_momentum: 0.8          # 过热剔除：12月动量超过80%的票不买（防高位接盘）
   rebalance_weekday: 4       # 周五收盘后出信号（0=周一 ... 4=周五）
   rebalance_schedule: month_end  # month_end=每月最后一个交易日；或用 rebalance_interval_weeks 自定义频率
   rebalance_interval_weeks: 4  # rebalance_schedule 非 month_end 时的调仓间隔（周）

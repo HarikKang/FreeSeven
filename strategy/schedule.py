@@ -9,7 +9,7 @@ def month_end_dates(dates: pd.Index) -> list[pd.Timestamp]:
     s = pd.Series(dates)
     s.index = s
     grouped = s.groupby(s.dt.to_period("M")).max()
-    return sorted(grouped.values.tolist())
+    return [pd.Timestamp(x) for x in grouped.values]
 
 
 def next_execution_dates(

@@ -57,6 +57,7 @@ def backtest_momentum(
     regime_code: str | None = None,
     regime_window: int = 20,
     momentum_lag: int = 0,
+    max_momentum: float | None = None,
 ) -> dict:
     """返回 equity、daily_returns、trades 等结果。"""
     closes = closes.sort_index()
@@ -68,11 +69,12 @@ def backtest_momentum(
     # 调仓日：每周 rebalance_weekday 的交易日；执行日为其下一个交易日
     if rebalance_dates is None:
         rebalance_dates = [d for d in dates if d.weekday() == rebalance_weekday]
+    idx_map = {pd.Timestamp(d): i for i, d in enumerate(dates)}
     signal_by_exec: dict = {}  # exec_date -> signal_date
     for r in rebalance_dates:
-        idx = dates.index(r)
+        idx = idx_map[pd.Timestamp(r)]
         if idx + 1 < len(dates):
-            signal_by_exec[dates[idx + 1]] = r
+            signal_by_exec[dates[idx + 1]] = pd.Timestamp(r)
 
     equity = capital
     active: dict[str, float] = {}
@@ -92,7 +94,12 @@ def backtest_momentum(
                     if c in prev_close and prev_close[c] > 0
                 )
             # 决定新目标权重（用调仓日周五收盘的动量）
-            new_active = target_weights(mom.loc[signal_date], top_n, require_positive)
+            new_active = target_weights(
+                mom.loc[signal_date],
+                top_n,
+                require_positive,
+                max_momentum=max_momentum,
+            )
             # 大盘趋势过滤：regime 动量转负 -> 整体空仓
             if regime_code is not None:
                 regime_mom = mom.loc[signal_date].get(regime_code)

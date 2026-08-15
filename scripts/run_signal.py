@@ -80,6 +80,7 @@ def main():
         window=strat["momentum_window"],
         top_n=strat["top_n"],
         require_positive=strat["require_positive"],
+        max_momentum=strat.get("max_momentum"),
         asof=asof,
     )
     prev = load_previous()
@@ -128,6 +129,15 @@ def main():
         for code in sorted(sells, key=lambda c: -mom_series.get(c, 0)):
             lines.append(f"    {names.get(code, code)}[{code}]")
     lines.append("")
+
+    max_mom = strat.get("max_momentum")
+    if max_mom:
+        over = mom_series[mom_series > max_mom].sort_values(ascending=False)
+        if not over.empty:
+            lines.append(f"⚠️ 过热剔除（12月动量>+{max_mom*100:.0f}%，防高位接盘）:")
+            for code, v in over.items():
+                lines.append(f"    {names.get(code, code)}[{code}] 近12月+{v*100:.1f}%")
+            lines.append("")
 
     lines.append("【目标持仓明细】（按近12月动量排序）")
     if weights:
