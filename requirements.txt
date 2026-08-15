@@ -1,0 +1,6 @@
+tushare>=1.4.0
+pandas>=2.0
+pyyaml>=6.0
+requests>=2.31
+pytest>=7.0
+matplotlib>=3.7  # 可选，用于回测净值图

@@ -1,0 +1,102 @@
+# ETF 动量轮动配置
+
+universe:
+  # 宽基
+  - ts_code: 510300.SH
+    name: 沪深300
+  - ts_code: 510500.SH
+    name: 中证500
+  - ts_code: 510050.SH
+    name: 上证50
+  - ts_code: 512100.SH
+    name: 中证1000
+  - ts_code: 588000.SH
+    name: 科创50
+  - ts_code: 159915.SZ
+    name: 创业板
+  # 行业
+  - ts_code: 512010.SH
+    name: 医药
+  - ts_code: 512880.SH
+    name: 证券
+  - ts_code: 512800.SH
+    name: 银行
+  - ts_code: 515030.SH
+    name: 新能源车
+  - ts_code: 515790.SH
+    name: 光伏
+  - ts_code: 512480.SH
+    name: 半导体
+  - ts_code: 159928.SZ
+    name: 消费
+  - ts_code: 512690.SH
+    name: 酒
+  - ts_code: 512660.SH
+    name: 军工
+  - ts_code: 512400.SH
+    name: 有色金属
+  - ts_code: 515220.SH
+    name: 煤炭
+  - ts_code: 512200.SH
+    name: 房地产
+  - ts_code: 512980.SH
+    name: 传媒
+  - ts_code: 515070.SH
+    name: 人工智能
+  - ts_code: 512720.SH
+    name: 计算机
+  - ts_code: 159766.SZ
+    name: 旅游
+  # 红利/防御
+  - ts_code: 510880.SH
+    name: 红利
+  - ts_code: 512890.SH
+    name: 红利低波
+  - ts_code: 511260.SH
+    name: 十年国债
+  - ts_code: 511990.SH
+    name: 货币ETF
+  # 商品
+  - ts_code: 518880.SH
+    name: 黄金
+  # 跨市场
+  - ts_code: 513100.SH
+    name: 纳指100
+  - ts_code: 513500.SH
+    name: 标普500
+  - ts_code: 159920.SZ
+    name: 恒生
+  - ts_code: 513180.SH
+    name: 恒生科技
+  - ts_code: 510900.SH
+    name: H股
+  - ts_code: 513050.SH
+    name: 中概互联
+  - ts_code: 513330.SH
+    name: 恒生互联网
+  - ts_code: 513000.SH
+    name: 日经225
+
+strategy:
+  momentum_window: 250       # 12个月动量
+  momentum_lag: 0            # 0=纯12月动量（12-1会规避短期反转，但对QDII更差）
+  top_n: 8                   # 持有数量
+  require_positive: true     # 动量需为正才买入，全负则空仓
+  rebalance_weekday: 4       # 周五收盘后出信号（0=周一 ... 4=周五）
+  rebalance_schedule: month_end  # month_end=每月最后一个交易日；或用 rebalance_interval_weeks 自定义频率
+  rebalance_interval_weeks: 4  # rebalance_schedule 非 month_end 时的调仓间隔（周）
+  exec_weekday: 0            # 下周一开盘执行
+
+costs:
+  commission_rate: 0.00025   # 佣金万 2.5
+  min_commission: 5.0        # 最低佣金（元）
+  slippage: 0.001            # 滑点 0.1%
+  stamp_duty: 0.0            # ETF 免印花税
+
+backtest:
+  start: "20180101"
+  end: "20261231"
+
+notify:
+  channel: serverchan        # serverchan / pushplus
+  key: ""                    # 推送密钥，从环境变量读取
