@@ -1,6 +1,6 @@
 import pandas as pd
 
-from strategy.allocator import target_weights
+from strategy.core import MomentumStrategy
 from strategy.momentum import compute_momentum
 
 
@@ -17,27 +17,27 @@ def test_compute_momentum_lag():
     assert mom.iloc[-1]["A"] == 4 / 2 - 1
 
 
-def test_target_weights_topn():
+def test_select_topn():
     s = pd.Series({"A": 0.3, "B": 0.1, "C": -0.2, "D": 0.2})
-    w = target_weights(s, top_n=2, require_positive=True)
+    w = MomentumStrategy(top_n=2).select(s)
     assert set(w.keys()) == {"A", "D"}
     assert abs(sum(w.values()) - 1.0) < 1e-9
 
 
-def test_target_weights_all_negative():
+def test_select_all_negative():
     s = pd.Series({"A": -0.1, "B": -0.2})
-    assert target_weights(s, top_n=2, require_positive=True) == {}
+    assert MomentumStrategy(top_n=2).select(s) == {}
 
 
-def test_target_weights_ignores_nan():
+def test_select_ignores_nan():
     s = pd.Series({"A": 0.3, "B": float("nan"), "C": 0.1})
-    w = target_weights(s, top_n=3, require_positive=True)
+    w = MomentumStrategy(top_n=3).select(s)
     assert set(w.keys()) == {"A", "C"}
 
 
-def test_target_weights_max_momentum():
+def test_select_max_momentum():
     s = pd.Series({"A": 0.95, "B": 0.6, "C": 0.4, "D": -0.1})
-    w = target_weights(s, top_n=2, require_positive=True, max_momentum=0.8)
+    w = MomentumStrategy(top_n=2, max_momentum=0.8).select(s)
     assert set(w.keys()) == {"B", "C"}
 
 

@@ -10,10 +10,6 @@
     python scripts/sensitivity.py --start 20200101
 """
 import argparse
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backtest.engine import backtest_momentum
 from backtest.metrics import cagr, max_drawdown, sharpe

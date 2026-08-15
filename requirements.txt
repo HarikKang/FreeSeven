@@ -1,6 +1,3 @@
-tushare>=1.4.0
-pandas>=2.0
-pyyaml>=6.0
-requests>=2.31
-pytest>=7.0
-matplotlib>=3.7  # 可选，用于回测净值图
+# 依赖声明的唯一来源是 pyproject.toml；本文件仅为安装便捷入口。
+# 安装：pip install -r requirements.txt（等价于 pip install -e .[dev,plot]）
+-e .[dev,plot]

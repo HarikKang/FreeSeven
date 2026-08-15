@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "freeseven"
+version = "0.2.0"
+description = "A股+跨市场 ETF 动量轮动量化工具（信号+手动下单，月频调仓）"
+requires-python = ">=3.11"
+dependencies = [
+    "tushare>=1.4.0",
+    "pandas>=2.0",
+    "pyyaml>=6.0",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+plot = ["matplotlib>=3.7"]  # 回测净值图
+
+[tool.setuptools]
+py-modules = ["config"]
+packages = ["backtest", "data", "signals", "strategy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

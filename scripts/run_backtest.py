@@ -1,19 +1,16 @@
 """跑动量轮动回测并输出报告。
 
 用法:
-    python scripts/backtest.py
-    python scripts/backtest.py --start 20200101
-    python scripts/backtest.py --chart out/equity.png
+    python scripts/run_backtest.py
+    python scripts/run_backtest.py --start 20200101
+    python scripts/run_backtest.py --chart out/equity.png
 """
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import pandas as pd
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backtest.engine import backtest_momentum, benchmark_equity
 from backtest.metrics import metrics, max_drawdown

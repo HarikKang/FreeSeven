@@ -9,10 +9,6 @@
     python scripts/attribution.py --start 20200101
 """
 import argparse
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
 

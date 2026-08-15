@@ -41,10 +41,10 @@ tests/         单元测试
 ## 快速开始
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt      # 以可编辑模式安装 freeseven 包（依赖声明在 pyproject.toml）
 cp config/.env.example config/.env   # 填 TUSHARE_TOKEN
 python scripts/fetch_data.py         # 全量拉取 ETF 日线到 SQLite
-python scripts/backtest.py --chart out/equity.png   # 回测
+python scripts/run_backtest.py --chart out/equity.png   # 回测
 python scripts/run_signal.py --capital 100000       # 出本月调仓信号
 ```
 

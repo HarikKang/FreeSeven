@@ -1,26 +1,5 @@
-"""信号生成"""
+"""信号生成：目标权重差异计算（选股统一入口在 strategy.core.MomentumStrategy）。"""
 from __future__ import annotations
-
-import pandas as pd
-
-from strategy.core import MomentumStrategy
-
-
-def generate_signal(
-    closes: pd.DataFrame,
-    window: int,
-    top_n: int,
-    require_positive: bool,
-    max_momentum: float | None = None,
-    asof: pd.Timestamp | None = None,
-    lag: int = 0,
-) -> dict[str, float]:
-    """基于截至 asof 的数据生成目标权重（兼容入口，优先用 MomentumStrategy）。"""
-    strategy = MomentumStrategy(
-        window=window, lag=lag, top_n=top_n,
-        require_positive=require_positive, max_momentum=max_momentum,
-    )
-    return strategy.signal(closes, asof=asof)
 
 
 def diff_signal(

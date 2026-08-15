@@ -10,10 +10,6 @@
     python scripts/walk_forward.py --exclude 159985.SZ,159980.SZ,515210.SH,511360.SH,159930.SZ,511380.SH
 """
 import argparse
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
 

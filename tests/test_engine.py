@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 
 from backtest.engine import backtest_momentum
-from signals.generator import generate_signal
 from strategy.core import MomentumStrategy
 
 ZERO_COSTS = {"commission_rate": 0.0, "min_commission": 0.0, "slippage": 0.0, "stamp_duty": 0.0}
@@ -73,15 +72,12 @@ def test_engine_cost_applied():
 
 
 def test_signal_matches_backtest_selection():
-    """实盘信号与回测选股同源：generate_signal 与 strategy.select 结果一致。"""
+    """实盘信号与回测选股同源：strategy.signal 与 strategy.select 结果一致。"""
     closes, _, dates = make_market(periods=30)
     strategy = MomentumStrategy(window=5, lag=1, top_n=2, require_positive=True, max_momentum=0.5)
     mom = strategy.momentum(closes)
     via_select = strategy.select(mom.loc[dates[-1]])
-    via_signal = generate_signal(
-        closes, window=5, top_n=2, require_positive=True,
-        max_momentum=0.5, asof=dates[-1], lag=1,
-    )
+    via_signal = strategy.signal(closes, asof=dates[-1])
     assert via_signal == via_select
 
 
