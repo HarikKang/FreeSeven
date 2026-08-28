@@ -64,6 +64,8 @@ python scripts/attribution.py                       # 收益来源归因（剔�
 
 推送配置：在 `config/.env` 配置 `DINGTALK_WEBHOOK_URL` 与 `DINGTALK_SECRET`（钉钉群→群设置→智能群助手→自定义机器人），`config/config.yaml` 的 `notify.channel` 设为 `dingtalk`。也支持 Server酱（`SERVERCHAN_KEY`）/ PushPlus（`PUSHPLUS_TOKEN`）。
 
+信号存档：每次运行 `run_signal.py` 会在 `data/signals/` 写入带日期的记录（如 `20260828.json`），并纳入 git 版本管理——换电脑时 clone 即可带走全部历史信号，方便事后对照实际成交做复盘（`latest.json` 为快捷方式不入库）。
+
 ## 注意事项
 
 - **价格为前复权**：基于 tushare `fund_adj` 复权因子，修正分红除息对动量/收益的污染；升级后请先跑一次 `python scripts/fetch_data.py` 拉取复权因子

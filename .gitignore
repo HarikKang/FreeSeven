@@ -7,7 +7,8 @@ venv/
 data/*.db
 data/*.sqlite
 data/*.sqlite3
-data/signals/
+# data/signals/ 下仅忽略每次重写的快捷方式，带日期的信号记录入库
+data/signals/latest.json
 out/
 .idea/
 .vscode/
