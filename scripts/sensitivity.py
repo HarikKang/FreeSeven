@@ -14,7 +14,7 @@ import argparse
 from backtest.engine import backtest_momentum
 from backtest.metrics import cagr, max_drawdown, sharpe
 from config import load_config
-from data import Storage
+from data import Storage, active_codes
 from strategy.core import MomentumStrategy
 from strategy.schedule import month_end_dates
 
@@ -68,6 +68,7 @@ def main():
                 top_n=strat["top_n"], require_positive=strat["require_positive"],
                 max_momentum=mm,
                 max_cross=strat.get("max_cross"), cross_codes=cross_codes,
+                eligible_codes=active_codes(),
             )
             m = run_one(closes, opens, rb, costs, s, regime_code)
             rows.append((f"max_momentum={mm if mm is not None else '关闭'}", m))
@@ -83,6 +84,7 @@ def main():
                     require_positive=strat["require_positive"],
                     max_momentum=strat.get("max_momentum"),
                     max_cross=strat.get("max_cross"), cross_codes=cross_codes,
+                    eligible_codes=active_codes(),
                 )
                 m = run_one(closes, opens, rb, costs, s, regime_code)
                 rows.append((f"window={w}, top_n={n}", m))

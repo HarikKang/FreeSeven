@@ -15,7 +15,7 @@ import pandas as pd
 from backtest.engine import backtest_momentum
 from backtest.metrics import cagr, max_drawdown, sharpe
 from config import load_config
-from data import Storage
+from data import Storage, active_codes
 from strategy.core import MomentumStrategy
 from strategy.schedule import month_end_dates
 
@@ -57,7 +57,7 @@ def main():
     rb = month_end_dates(closes.index)
 
     base = MomentumStrategy.from_config(strat, cross_codes=cross_all, risk=cfg.get("risk"),
-                                        active_from=cfg.get("candidate_activation"))
+                                        active_from=cfg.get("candidate_activation"), eligible_codes=active_codes())
 
     # —— 第一组：剔除法 ——
     drop_variants = [

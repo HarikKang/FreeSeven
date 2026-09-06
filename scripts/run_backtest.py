@@ -15,7 +15,7 @@ import pandas as pd
 from backtest.engine import backtest_momentum, benchmark_equity
 from backtest.metrics import metrics, max_drawdown
 from config import load_config
-from data import Storage, ts_codes
+from data import Storage, active_codes
 from strategy.core import MomentumStrategy
 from strategy.schedule import month_end_dates
 
@@ -64,7 +64,8 @@ def main():
         rb = month_end_dates(closes.index)
 
     strategy = MomentumStrategy.from_config(strat, cross_codes=cfg.get("cross_market", []),
-                                             risk=cfg.get("risk"), active_from=cfg.get("candidate_activation"))
+                                             risk=cfg.get("risk"), active_from=cfg.get("candidate_activation"),
+                                             eligible_codes=active_codes())
     result = backtest_momentum(
         closes=closes,
         opens=opens,

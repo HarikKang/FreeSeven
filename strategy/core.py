@@ -23,6 +23,7 @@ class MomentumStrategy:
         region_by_code: dict[str, str] | None = None,
         max_per_region: int | None = None,
         active_from: dict[str, str] | None = None,
+        eligible_codes: list[str] | None = None,
     ):
         self.window = window
         self.lag = lag
@@ -36,11 +37,13 @@ class MomentumStrategy:
         self.region_by_code = region_by_code or {}
         self.max_per_region = max_per_region
         self.active_from = {c: pd.Timestamp(d) for c, d in (active_from or {}).items()}
+        self.eligible_codes = set(eligible_codes) if eligible_codes is not None else None
 
     @classmethod
     def from_config(
         cls, strat: dict, cross_codes: list[str] | None = None, risk: dict | None = None,
         active_from: dict[str, str] | None = None,
+        eligible_codes: list[str] | None = None,
     ) -> "MomentumStrategy":
         risk = risk or {}
         return cls(
@@ -54,6 +57,7 @@ class MomentumStrategy:
             theme_by_code=risk.get("theme_by_code"), max_per_theme=risk.get("max_per_theme"),
             region_by_code=risk.get("region_by_code"), max_per_region=risk.get("max_per_region"),
             active_from=active_from,
+            eligible_codes=eligible_codes,
         )
 
     def momentum(self, closes: pd.DataFrame) -> pd.DataFrame:
@@ -68,6 +72,8 @@ class MomentumStrategy:
         其余名额由动量次优标的补足（限 QDII 溢价/单一市场集中风险）。
         """
         m = mom_row.dropna()
+        if self.eligible_codes is not None:
+            m = m[m.index.isin(self.eligible_codes)]
         if excluded_codes:
             m = m.drop(index=list(excluded_codes), errors="ignore")
         if asof is not None:

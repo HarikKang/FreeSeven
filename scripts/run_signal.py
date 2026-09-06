@@ -16,7 +16,7 @@ from pathlib import Path
 import pandas as pd
 
 from config import ROOT, load_config
-from data import Storage, TushareFetcher, load_universe
+from data import Storage, TushareFetcher, active_codes, load_universe
 from data.sync import fetch_incremental
 from signals.generator import diff_signal
 from signals.notifier import notify
@@ -95,7 +95,7 @@ def main():
 
     strategy = MomentumStrategy.from_config(
         strat, cross_codes=cfg.get("cross_market", []), risk=cfg.get("risk"),
-        active_from=cfg.get("candidate_activation"),
+        active_from=cfg.get("candidate_activation"), eligible_codes=active_codes(),
     )
     # 展示用动量（与选股同一口径，含 lag/max_momentum 参数）
     mom_series = strategy.momentum(closes).iloc[-1]
