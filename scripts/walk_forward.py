@@ -25,7 +25,8 @@ BENCH = "510300.SH"
 
 def run_backtest(closes, opens, cfg):
     strat, costs = cfg["strategy"], cfg["costs"]
-    s = MomentumStrategy.from_config(strat, cross_codes=cfg.get("cross_market", []))
+    s = MomentumStrategy.from_config(strat, cross_codes=cfg.get("cross_market", []),
+                                     risk=cfg.get("risk"), active_from=cfg.get("candidate_activation"))
     rb = month_end_dates(closes.index)
     return backtest_momentum(
         closes=closes, opens=opens, strategy=s, costs=costs,

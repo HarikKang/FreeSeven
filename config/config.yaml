@@ -100,6 +100,41 @@ cross_market:
   - 513330.SH   # 恒生互联网
   - 513000.SH   # 日经225
 
+# 风险分组：同主题/同海外区域最多选一只，避免“8只等权”伪分散。
+risk:
+  max_per_theme: 2
+  max_per_region: 1
+  premium_block: 0.05       # QDII 溢价高于此值不新开仓，改由下一名补位
+  block_qdii_without_nav: true
+  theme_by_code:
+    588000.SH: tech
+    512480.SH: tech
+    515070.SH: tech
+    512720.SH: tech
+    159915.SZ: tech
+    513100.SH: tech
+    513500.SH: tech
+    513180.SH: tech
+    513330.SH: tech
+  region_by_code:
+    513100.SH: us
+    513500.SH: us
+    159920.SZ: hongkong
+    513180.SH: hongkong
+    510900.SH: hongkong
+    513050.SH: hongkong
+    513330.SH: hongkong
+    513000.SH: japan
+
+# 候选池版本：2026-08 新增资产在此之前不可进入回测，避免事后入池偏差。
+candidate_activation:
+  159930.SZ: "20260801"
+  515210.SH: "20260801"
+  511380.SH: "20260801"
+  511360.SH: "20260801"
+  159985.SZ: "20260801"
+  159980.SZ: "20260801"
+
 strategy:
   momentum_window: 250       # 12个月动量
   momentum_lag: 0            # 0=纯12月动量（12-1会规避短期反转，但对QDII更差）

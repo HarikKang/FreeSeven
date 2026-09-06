@@ -37,19 +37,22 @@ def render_signal_report(
         lines.append("🟡 本月操作：全空仓")
         lines.append("    无正动量标的，持币等待，本月不交易。")
     else:
-        lines.append(f"🟢 新建买入（{len(buys)}只）:" + (" 无" if not buys else ""))
+        lines.append(f"🟢 需买入/加仓（{len(buys)}只）:" + (" 无" if not buys else ""))
         for code in sorted(buys, key=lambda c: -mom_series.get(c, 0)):
-            amt = capital * weights[code] if capital else 0
-            lines.append(f"    {names.get(code, code)}[{code}] {weights[code]*100:.0f}%"
-                         + (f" 约{amt:,.0f}元" if amt else ""))
+            target_amt = capital * weights[code] if capital else 0
+            trade_amt = capital * buys[code] if capital else 0
+            lines.append(f"    {names.get(code, code)}[{code}] 目标{weights[code]*100:.1f}%"
+                         + (f" | 买入约{trade_amt:,.0f}元（目标约{target_amt:,.0f}元）" if capital else ""))
         lines.append(f"⚪ 继续持有（{len(holds)}只）:" + (" 无" if not holds else ""))
         for code in sorted(holds, key=lambda c: -mom_series.get(c, 0)):
             amt = capital * weights[code] if capital else 0
             lines.append(f"    {names.get(code, code)}[{code}] {weights[code]*100:.0f}%"
                          + (f" 约{amt:,.0f}元" if amt else ""))
-        lines.append(f"🔴 清仓卖出（{len(sells)}只）:" + (" 无" if not sells else ""))
+        lines.append(f"🔴 需卖出/减仓（{len(sells)}只）:" + (" 无" if not sells else ""))
         for code in sorted(sells, key=lambda c: -mom_series.get(c, 0)):
-            lines.append(f"    {names.get(code, code)}[{code}]")
+            amt = capital * sells[code] if capital else 0
+            lines.append(f"    {names.get(code, code)}[{code}]"
+                         + (f" 卖出约{amt:,.0f}元" if amt else ""))
     lines.append("")
 
     if max_momentum:

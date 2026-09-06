@@ -48,24 +48,28 @@ def _pushplus(title: str, content: str, token: str) -> bool:
 
 def notify(channel: str, title: str, content: str) -> bool:
     """按 channel 推送，返回是否成功。channel 空则只打印。"""
-    if channel == "dingtalk":
-        webhook = os.environ.get("DINGTALK_WEBHOOK_URL", "")
-        secret = os.environ.get("DINGTALK_SECRET", "")
-        if not webhook:
-            print("[notify] 未配置 DINGTALK_WEBHOOK_URL，仅本地输出")
-            return False
-        return _dingtalk(title, content, webhook, secret)
-    if channel == "serverchan":
-        key = os.environ.get("SERVERCHAN_KEY", "")
-        if not key:
-            print("[notify] 未配置 SERVERCHAN_KEY，仅本地输出")
-            return False
-        return _serverchan(title, content, key)
-    if channel == "pushplus":
-        token = os.environ.get("PUSHPLUS_TOKEN", "")
-        if not token:
-            print("[notify] 未配置 PUSHPLUS_TOKEN，仅本地输出")
-            return False
-        return _pushplus(title, content, token)
-    print(f"[notify] channel={channel} 未知，仅本地输出")
-    return False
+    try:
+        if channel == "dingtalk":
+            webhook = os.environ.get("DINGTALK_WEBHOOK_URL", "")
+            secret = os.environ.get("DINGTALK_SECRET", "")
+            if not webhook:
+                print("[notify] 未配置 DINGTALK_WEBHOOK_URL，仅本地输出")
+                return False
+            return _dingtalk(title, content, webhook, secret)
+        if channel == "serverchan":
+            key = os.environ.get("SERVERCHAN_KEY", "")
+            if not key:
+                print("[notify] 未配置 SERVERCHAN_KEY，仅本地输出")
+                return False
+            return _serverchan(title, content, key)
+        if channel == "pushplus":
+            token = os.environ.get("PUSHPLUS_TOKEN", "")
+            if not token:
+                print("[notify] 未配置 PUSHPLUS_TOKEN，仅本地输出")
+                return False
+            return _pushplus(title, content, token)
+        print(f"[notify] channel={channel} 未知，仅本地输出")
+        return False
+    except (requests.RequestException, ValueError) as exc:
+        print(f"[notify] 推送失败（{exc.__class__.__name__}），信号已保留在本地")
+        return False

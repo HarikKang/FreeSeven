@@ -1,7 +1,9 @@
 """跨市场限仓与 QDII 溢价计算单测。"""
 import pandas as pd
+import requests
 
 from signals.premium import compute_premiums, premium_level
+from signals.notifier import notify
 from strategy.core import MomentumStrategy
 
 
@@ -59,3 +61,12 @@ def test_premium_level():
     assert premium_level(0.01) == ""
     assert premium_level(0.04) == "warn"
     assert premium_level(0.06) == "high"
+
+
+def test_notify_network_failure_does_not_raise(monkeypatch):
+    monkeypatch.setenv("DINGTALK_WEBHOOK_URL", "https://example.invalid")
+    monkeypatch.setattr(
+        "signals.notifier._dingtalk",
+        lambda *args: (_ for _ in ()).throw(requests.ConnectionError("offline")),
+    )
+    assert notify("dingtalk", "title", "content") is False

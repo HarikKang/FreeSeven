@@ -81,6 +81,18 @@ def test_signal_matches_backtest_selection():
     assert via_signal == via_select
 
 
+def test_engine_weights_drift_between_rebalances():
+    """持仓上涨后权重应漂移，而不能在没有成本时每天偷偷等权。"""
+    dates = pd.bdate_range("2024-01-01", periods=10)
+    closes = pd.DataFrame({"A": [100] * 8 + [200, 400], "B": [100] * 10}, index=dates)
+    strategy = MomentumStrategy(window=2, top_n=2, require_positive=False)
+    result = backtest_momentum(
+        closes, closes.copy(), strategy, ZERO_COSTS, rebalance_dates=[dates[6]]
+    )
+    # dates[7] 建仓；A 在 dates[8] 翻倍后占组合 2/3，故 dates[9] 再翻倍时组合收益为 2/3。
+    assert abs(result["daily_returns"].loc[dates[9]] - 2 / 3) < 1e-9
+
+
 def test_from_config_reads_lag_and_max_momentum():
     strat = {
         "momentum_window": 5, "momentum_lag": 1, "top_n": 2,

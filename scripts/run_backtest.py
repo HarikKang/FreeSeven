@@ -63,7 +63,8 @@ def main():
     if strat.get("rebalance_schedule") == "month_end":
         rb = month_end_dates(closes.index)
 
-    strategy = MomentumStrategy.from_config(strat, cross_codes=cfg.get("cross_market", []))
+    strategy = MomentumStrategy.from_config(strat, cross_codes=cfg.get("cross_market", []),
+                                             risk=cfg.get("risk"), active_from=cfg.get("candidate_activation"))
     result = backtest_momentum(
         closes=closes,
         opens=opens,

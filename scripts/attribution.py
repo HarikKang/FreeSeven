@@ -56,7 +56,8 @@ def main():
         opens = opens.reindex(closes.index)
     rb = month_end_dates(closes.index)
 
-    base = MomentumStrategy.from_config(strat, cross_codes=cross_all)
+    base = MomentumStrategy.from_config(strat, cross_codes=cross_all, risk=cfg.get("risk"),
+                                        active_from=cfg.get("candidate_activation"))
 
     # —— 第一组：剔除法 ——
     drop_variants = [

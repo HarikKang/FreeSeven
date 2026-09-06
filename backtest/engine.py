@@ -43,6 +43,31 @@ def _cost_fraction(
     return (commission + slippage + stamp) / equity if equity > 0 else 0.0
 
 
+def _period_returns(
+    weights: dict[str, float], start: pd.Series, end: pd.Series
+) -> dict[str, float]:
+    """持仓在一个价格区间内的收益；缺失或停牌价格按零收益处理。"""
+    return {
+        code: (
+            end[code] / start[code] - 1.0
+            if code in start and code in end and _valid(start[code]) and _valid(end[code])
+            else 0.0
+        )
+        for code in weights
+    }
+
+
+def _evolve_weights(weights: dict[str, float], returns: dict[str, float]) -> dict[str, float]:
+    """根据实际价格变动更新仓位权重，未投资部分保留为现金。"""
+    if not weights:
+        return {}
+    cash = max(0.0, 1.0 - sum(weights.values()))
+    gross = cash + sum(w * (1.0 + returns.get(code, 0.0)) for code, w in weights.items())
+    if gross <= 0:
+        return {}
+    return {code: w * (1.0 + returns.get(code, 0.0)) / gross for code, w in weights.items()}
+
+
 def backtest_momentum(
     closes: pd.DataFrame,
     opens: pd.DataFrame,
@@ -83,33 +108,30 @@ def backtest_momentum(
     for d in dates:
         if d in signal_by_exec:
             signal_date = signal_by_exec[d]
-            # 卖出部分：从昨收到今开（停牌标的无有效开盘价，当日不计收益）
-            ret_old = 0.0
-            if prev_close is not None and active:
-                ret_old = sum(
-                    w * (opens.loc[d][c] / prev_close[c] - 1.0)
-                    for c, w in active.items()
-                    if c in prev_close and _valid(prev_close[c]) and _valid(opens.loc[d][c])
-                )
+            # 先计持仓从昨收到今开的实际收益，再按开盘时已漂移的权重调仓。
+            overnight = (
+                _period_returns(active, prev_close, opens.loc[d])
+                if prev_close is not None else {}
+            )
+            ret_old = sum(active[c] * r for c, r in overnight.items())
+            equity *= 1.0 + ret_old
+            old_at_open = _evolve_weights(active, overnight)
             # 决定新目标权重（用调仓日收盘的动量）
-            new_active = strategy.select(mom.loc[signal_date])
+            new_active = strategy.select(mom.loc[signal_date], asof=signal_date)
             # 大盘趋势过滤：regime 动量转负 -> 整体空仓
             if regime_code is not None:
                 regime_mom = mom.loc[signal_date].get(regime_code)
                 if regime_mom is not None and regime_mom < 0:
                     new_active = {}
-            cost = _cost_fraction(active, new_active, costs, equity)
+            cost = _cost_fraction(old_at_open, new_active, costs, equity)
+            equity *= 1.0 - cost
             # 买入部分：从今开到今收
-            ret_new = sum(
-                w * (closes.loc[d][c] / opens.loc[d][c] - 1.0)
-                for c, w in new_active.items()
-                if _valid(opens.loc[d][c]) and _valid(closes.loc[d][c])
-            )
+            intraday = _period_returns(new_active, opens.loc[d], closes.loc[d])
+            ret_new = sum(new_active[c] * r for c, r in intraday.items())
             daily_returns[d] = (1.0 + ret_old) * (1.0 - cost) * (1.0 + ret_new) - 1.0
-            equity *= 1.0 + daily_returns[d]
 
-            buys = {c: w for c, w in new_active.items() if new_active.get(c, 0) > active.get(c, 0) + 1e-9}
-            sells = {c: w for c, w in active.items() if new_active.get(c, 0) < active.get(c, 0) - 1e-9}
+            buys = {c: w for c, w in new_active.items() if w > old_at_open.get(c, 0) + 1e-9}
+            sells = {c: w for c, w in old_at_open.items() if new_active.get(c, 0) < w - 1e-9}
             if buys or sells or cost > 0:
                 trades.append(
                     {
@@ -118,19 +140,17 @@ def backtest_momentum(
                         "buys": buys,
                         "sells": sells,
                         "weights": dict(new_active),
-                        "old_weights": dict(active),
+                        "old_weights": dict(old_at_open),
                         "cost": cost,
                     }
                 )
-            active = new_active
+            active = _evolve_weights(new_active, intraday)
         else:
             if active and prev_close is not None:
-                r = sum(
-                    w * (closes.loc[d][c] / prev_close[c] - 1.0)
-                    for c, w in active.items()
-                    if c in prev_close and _valid(prev_close[c]) and _valid(closes.loc[d][c])
-                )
+                period = _period_returns(active, prev_close, closes.loc[d])
+                r = sum(active[c] * value for c, value in period.items())
                 daily_returns[d] = r
+                active = _evolve_weights(active, period)
             else:
                 daily_returns[d] = 0.0
             equity *= 1.0 + daily_returns[d]
