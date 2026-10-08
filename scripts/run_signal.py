@@ -18,6 +18,7 @@ import pandas as pd
 
 from config import ROOT, load_config
 from data import Storage, TushareFetcher, active_codes, load_universe
+from data.portfolio import actual_weights, load_state
 from data.sync import fetch_incremental
 from signals.generator import diff_signal
 from signals.notifier import notify
@@ -35,20 +36,6 @@ def load_previous() -> dict | None:
     if f.exists():
         return json.loads(f.read_text())
     return None
-
-
-def load_actual_weights(path, closes: pd.DataFrame, asof: pd.Timestamp) -> dict[str, float] | None:
-    """按真实份额和最新收盘价计算当前权重；不存在状态文件时返回 None。"""
-    if not path.exists():
-        return None
-    state = json.loads(path.read_text())
-    values = {
-        p["ts_code"]: float(p["shares"]) * float(closes.loc[asof, p["ts_code"]])
-        for p in state.get("positions", [])
-        if p.get("ts_code") in closes.columns and p.get("shares", 0) > 0
-    }
-    total = float(state.get("cash", 0)) + sum(values.values())
-    return {code: value / total for code, value in values.items()} if total > 0 else {}
 
 
 def save_signal(asof: str, weights: dict, plan: dict):
@@ -131,10 +118,11 @@ def main():
         labels = ", ".join(sorted(blocked_qdii))
         print(f"[风控] 已阻止高溢价/无净值 QDII 新开仓: {labels}")
 
-    actual_weights = load_actual_weights(Path(args.state), closes, asof)
+    state = load_state(Path(args.state))
+    held_weights = actual_weights(state, closes, asof) if state else None
     prev = load_previous()
-    prev_weights = actual_weights if actual_weights is not None else (prev.get("weights", {}) if prev else {})
-    if actual_weights is None:
+    prev_weights = held_weights if held_weights is not None else (prev.get("weights", {}) if prev else {})
+    if held_weights is None:
         print("[提示] 未找到实际持仓文件，交易差额暂以最近信号为准；可复制 config/portfolio_state.example.json。")
     sells, buys = diff_signal(prev_weights, weights)
     holds = {
