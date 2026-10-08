@@ -116,8 +116,10 @@ def backtest_momentum(
             ret_old = sum(active[c] * r for c, r in overnight.items())
             equity *= 1.0 + ret_old
             old_at_open = _evolve_weights(active, overnight)
-            # 决定新目标权重（用调仓日收盘的动量）
-            new_active = strategy.select(mom.loc[signal_date], asof=signal_date)
+            # 决定新目标权重（用调仓日收盘的动量；closes 截至信号日，避免未来数据）
+            new_active = strategy.select(
+                mom.loc[signal_date], asof=signal_date, closes=closes.loc[:signal_date]
+            )
             # 大盘趋势过滤：regime 动量转负 -> 整体空仓
             if regime_code is not None:
                 regime_mom = mom.loc[signal_date].get(regime_code)
