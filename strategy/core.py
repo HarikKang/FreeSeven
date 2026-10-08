@@ -22,6 +22,7 @@ class MomentumStrategy:
         max_per_theme: int | None = None,
         region_by_code: dict[str, str] | None = None,
         max_per_region: int | None = None,
+        max_pairwise_corr: float | None = None,
         active_from: dict[str, str] | None = None,
         eligible_codes: list[str] | None = None,
     ):
@@ -36,6 +37,7 @@ class MomentumStrategy:
         self.max_per_theme = max_per_theme
         self.region_by_code = region_by_code or {}
         self.max_per_region = max_per_region
+        self.max_pairwise_corr = max_pairwise_corr
         self.active_from = {c: pd.Timestamp(d) for c, d in (active_from or {}).items()}
         self.eligible_codes = set(eligible_codes) if eligible_codes is not None else None
 
@@ -56,6 +58,7 @@ class MomentumStrategy:
             cross_codes=cross_codes,
             theme_by_code=risk.get("theme_by_code"), max_per_theme=risk.get("max_per_theme"),
             region_by_code=risk.get("region_by_code"), max_per_region=risk.get("max_per_region"),
+            max_pairwise_corr=risk.get("max_pairwise_corr"),
             active_from=active_from,
             eligible_codes=eligible_codes,
         )
@@ -64,12 +67,29 @@ class MomentumStrategy:
         """滚动动量矩阵（index=交易日, columns=ts_code）。"""
         return compute_momentum(closes, self.window, lag=self.lag)
 
+    def _too_correlated(self, code: str, chosen: list[str], closes: pd.DataFrame) -> bool:
+        """候选与已入选任一标的的 trailing window 日收益相关 >= max_pairwise_corr
+        则视为同一仓位（如科创50 vs 半导体 r=0.97），跳过由下一名补位。
+        数据不足（NaN）不拦截。"""
+        hist = closes[[code] + chosen].tail(self.window + 1)
+        rets = hist.pct_change()
+        cand = rets[code]
+        for c in chosen:
+            r = cand.corr(rets[c])
+            if pd.notna(r) and r >= self.max_pairwise_corr:
+                return True
+        return False
+
     def select(self, mom_row: pd.Series, asof: pd.Timestamp | None = None,
-               excluded_codes: set[str] | None = None) -> dict[str, float]:
+               excluded_codes: set[str] | None = None,
+               closes: pd.DataFrame | None = None) -> dict[str, float]:
         """给定某一天的动量截面，返回目标权重 dict。
 
         设置了 max_cross 时，跨市场资产（cross_codes）最多入选 max_cross 只，
         其余名额由动量次优标的补足（限 QDII 溢价/单一市场集中风险）。
+
+        设置了 max_pairwise_corr 且传入 closes 时，与已入选标的相关性
+        过高的候选跳过（需传截至 asof 的收盘价，避免未来数据）。
         """
         m = mom_row.dropna()
         if self.eligible_codes is not None:
@@ -104,6 +124,13 @@ class MomentumStrategy:
                 self.region_by_code.get(c) == region for c in chosen
             ) >= self.max_per_region:
                 continue
+            if (
+                self.max_pairwise_corr is not None
+                and closes is not None
+                and chosen
+                and self._too_correlated(code, chosen, closes)
+            ):
+                continue
             chosen.append(code)
         if not chosen:
             return {}
@@ -117,4 +144,4 @@ class MomentumStrategy:
         closes = closes.sort_index()
         if asof is not None:
             closes = closes.loc[:asof]
-        return self.select(self.momentum(closes).iloc[-1], asof=closes.index[-1])
+        return self.select(self.momentum(closes).iloc[-1], asof=closes.index[-1], closes=closes)

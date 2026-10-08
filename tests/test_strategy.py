@@ -70,3 +70,24 @@ def test_select_enforces_theme_region_and_activation():
     mom = pd.Series({"T1": 0.9, "T2": 0.8, "U1": 0.7, "U2": 0.6, "NEW": 0.5, "A": 0.4})
     result = s.select(mom, asof=pd.Timestamp("2026-07-31"), excluded_codes={"U1"})
     assert set(result) == {"T1", "U2", "A"}
+
+
+def test_select_dedup_pairwise_corr():
+    """与已入选标的相关性 >= 阈值的候选跳过，由下一名补位。"""
+    import numpy as np
+
+    idx = pd.date_range("2024-01-01", periods=260, freq="B")
+    rng = np.random.default_rng(7)
+    a = pd.Series(100 * (1 + rng.normal(0.001, 0.01, len(idx))).cumprod(), index=idx)
+    b = a * 2.0  # 与 A 完全相关
+    c = pd.Series(100 * (1 + rng.normal(0.001, 0.01, len(idx))).cumprod(), index=idx)
+    closes = pd.DataFrame({"A": a, "B": b, "C": c})
+    mom = pd.Series({"B": 0.3, "A": 0.25, "C": 0.1})
+
+    # 无去重：动量前二 B、A
+    assert set(MomentumStrategy(top_n=2).select(mom, closes=closes)) == {"B", "A"}
+    # 有去重：A 与 B r=1.0 被剔除，C 补位
+    s = MomentumStrategy(top_n=2, max_pairwise_corr=0.85)
+    assert set(s.select(mom, closes=closes)) == {"B", "C"}
+    # 未传 closes 时规则不生效（兼容旧调用）
+    assert set(MomentumStrategy(top_n=2, max_pairwise_corr=0.85).select(mom)) == {"B", "A"}

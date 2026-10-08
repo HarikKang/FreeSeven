@@ -113,6 +113,9 @@ cross_market:
 risk:
   max_per_theme: 2
   max_per_region: 1
+  # 组合内相关性去重：候选与已入选标的的250日日收益相关 >= 阈值时视为重复仓位，
+  # 跳过并由下一名补位（如科创50 vs 半导体 r=0.97）。回测2018起：夏普0.53→0.57，年化+0.5pp
+  max_pairwise_corr: 0.85
   premium_block: 0.05       # QDII 溢价高于此值不新开仓，改由下一名补位
   block_qdii_without_nav: true
   theme_by_code:

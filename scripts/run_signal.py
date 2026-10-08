@@ -5,6 +5,7 @@
     python scripts/run_signal.py --capital 100000 # 按资金算买卖金额
     python scripts/run_signal.py --fetch          # 先增量拉数据再出信号
     python scripts/run_signal.py --force          # 非月末也出（如复盘）
+    python scripts/run_signal.py --asof 20260930  # 补算指定信号日（如节前漏跑月末信号）
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ import pandas as pd
 
 from config import ROOT, load_config
 from data import Storage, TushareFetcher, active_codes, load_universe
+from data.portfolio import actual_weights, load_state
 from data.sync import fetch_incremental
 from signals.generator import diff_signal
 from signals.notifier import notify
@@ -36,20 +38,6 @@ def load_previous() -> dict | None:
     return None
 
 
-def load_actual_weights(path, closes: pd.DataFrame, asof: pd.Timestamp) -> dict[str, float] | None:
-    """按真实份额和最新收盘价计算当前权重；不存在状态文件时返回 None。"""
-    if not path.exists():
-        return None
-    state = json.loads(path.read_text())
-    values = {
-        p["ts_code"]: float(p["shares"]) * float(closes.loc[asof, p["ts_code"]])
-        for p in state.get("positions", [])
-        if p.get("ts_code") in closes.columns and p.get("shares", 0) > 0
-    }
-    total = float(state.get("cash", 0)) + sum(values.values())
-    return {code: value / total for code, value in values.items()} if total > 0 else {}
-
-
 def save_signal(asof: str, weights: dict, plan: dict):
     SIGNAL_DIR.mkdir(parents=True, exist_ok=True)
     data = {"asof": asof, "weights": weights, "plan": plan}
@@ -62,6 +50,7 @@ def main():
     parser.add_argument("--capital", type=float, default=0.0, help="可用资金（元），用于换算买卖金额")
     parser.add_argument("--fetch", action="store_true", help="先增量拉取数据")
     parser.add_argument("--force", action="store_true", help="非调仓日也强制出信号")
+    parser.add_argument("--asof", default=None, help="补算历史信号日（YYYYMMDD），如节前漏跑月末信号")
     parser.add_argument("--state", default=str(STATE_PATH), help="实际持仓 JSON（份额为准）")
     args = parser.parse_args()
 
@@ -73,16 +62,26 @@ def main():
     if args.fetch:
         fetch_incremental(TushareFetcher(), storage, cfg["backtest"]["end"])
 
-    closes, _ = storage.load_matrices()  # 前复权价格，与回测同源
-    asof = closes.index[-1]
+    closes_all, _ = storage.load_matrices()  # 前复权价格，与回测同源
+    latest = closes_all.index[-1]
     today = datetime.now().date()
 
-    # 数据新鲜度检查：不能把“缓存里的最后一天”误认为月末。
-    gap_days = (today - asof.date()).days
-    business_gap = max(len(pd.bdate_range(asof.date(), today)) - 1, 0)
+    # 信号截面日：默认最新交易日；--asof 用于补算错过的历史信号日（如节前漏跑）。
+    if args.asof:
+        asof = pd.Timestamp(args.asof)
+        if asof not in closes_all.index:
+            print(f"[错误] {asof.date()} 不是交易日或库中无该日数据，退出。")
+            return
+    else:
+        asof = latest
+
+    # 数据新鲜度检查：不能把“缓存里的最后一天”误认为月末（按最新数据日判断，
+    # --asof 补算时数据本身仍应是新的）。
+    gap_days = (today - latest.date()).days
+    business_gap = max(len(pd.bdate_range(latest.date(), today)) - 1, 0)
     data_is_fresh = business_gap <= 1
     if not data_is_fresh:
-        print(f"[警告] 数据最新到 {asof.date()}，落后今天 {gap_days} 天，"
+        print(f"[警告] 数据最新到 {latest.date()}，落后今天 {gap_days} 天，"
               f"建议先运行 --fetch 更新后再出信号。")
 
     # 中国节假日导致月末早于自然工作日时，保守地要求使用 --force；
@@ -92,6 +91,8 @@ def main():
     if not should_execute:
         print(f"[提示] {asof.date()} 尚未确认是可执行的月末信号日，"
               f"本次仅作预览。可在更新数据后重试，或用 --force 强制。")
+
+    closes = closes_all.loc[:asof]  # 信号截面截至 asof，补算时杜绝 asof 之后的数据泄漏
 
     strategy = MomentumStrategy.from_config(
         strat, cross_codes=cfg.get("cross_market", []), risk=cfg.get("risk"),
@@ -111,16 +112,17 @@ def main():
         or code in premiums and premiums[code]["premium"] > risk.get("premium_block", 0.05)
     }
     weights = strategy.select(
-        strategy.momentum(closes).iloc[-1], asof=asof, excluded_codes=blocked_qdii
+        strategy.momentum(closes).iloc[-1], asof=asof, excluded_codes=blocked_qdii, closes=closes
     )
     if blocked_qdii:
         labels = ", ".join(sorted(blocked_qdii))
         print(f"[风控] 已阻止高溢价/无净值 QDII 新开仓: {labels}")
 
-    actual_weights = load_actual_weights(Path(args.state), closes, asof)
+    state = load_state(Path(args.state))
+    held_weights = actual_weights(state, closes, asof) if state else None
     prev = load_previous()
-    prev_weights = actual_weights if actual_weights is not None else (prev.get("weights", {}) if prev else {})
-    if actual_weights is None:
+    prev_weights = held_weights if held_weights is not None else (prev.get("weights", {}) if prev else {})
+    if held_weights is None:
         print("[提示] 未找到实际持仓文件，交易差额暂以最近信号为准；可复制 config/portfolio_state.example.json。")
     sells, buys = diff_signal(prev_weights, weights)
     holds = {
@@ -129,7 +131,7 @@ def main():
     }
 
     capital = args.capital or cfg.get("portfolio", {}).get("capital", 0.0)
-    exec_day = next_execution_dates(closes.index, [asof]).get(asof)  # 信号日下一个交易日
+    exec_day = next_execution_dates(closes_all.index, [asof]).get(asof)  # 信号日下一个交易日（按完整日历）
 
     plan_text = render_signal_report(
         asof=asof,
